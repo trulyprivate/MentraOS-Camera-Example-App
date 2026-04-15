@@ -38,6 +38,9 @@ export function photoStream(c: Context) {
           userId: photo.userId,
           base64: base64Data,
           dataUrl: `data:${photo.mimeType};base64,${base64Data}`,
+          detections: photo.detections ?? null,
+          width: photo.width ?? null,
+          height: photo.height ?? null,
         }),
       });
     }

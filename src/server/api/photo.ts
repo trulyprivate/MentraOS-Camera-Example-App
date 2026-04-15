@@ -21,6 +21,37 @@ export function getLatestPhoto(c: Context) {
     timestamp: latest.timestamp.getTime(),
     userId: latest.userId,
     hasPhoto: true,
+    detections: latest.detections ?? null,
+    width: latest.width ?? null,
+    height: latest.height ?? null,
+  });
+}
+
+/** GET /detections/:requestId — YOLO food detections for a specific photo */
+export function getPhotoDetections(c: Context) {
+  const requestId = c.req.param("requestId");
+  const userId = c.req.query("userId");
+
+  if (!userId) return c.json({ error: "userId is required" }, 400);
+
+  const user = sessions.get(userId);
+  const photo = user?.photo.getPhoto(requestId);
+  if (!photo) return c.json({ error: "Photo not found" }, 404);
+  if (photo.userId !== userId) {
+    return c.json(
+      { error: "Access denied: photo belongs to different user" },
+      403,
+    );
+  }
+
+  return c.json({
+    requestId: photo.requestId,
+    timestamp: photo.timestamp.getTime(),
+    userId: photo.userId,
+    width: photo.width ?? null,
+    height: photo.height ?? null,
+    detections: photo.detections ?? null,
+    pending: photo.detections === undefined,
   });
 }
 

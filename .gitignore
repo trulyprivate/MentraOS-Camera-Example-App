@@ -3,6 +3,10 @@ node_modules/
 bun.lock
 .DS_Store
 *.log
+
+# YOLO model cache (downloaded at runtime)
+models/
+*.onnx
 # VSCode
 .vscode/
 # Mac system files

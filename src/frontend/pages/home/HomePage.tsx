@@ -59,19 +59,38 @@ export default function HomePage({ userId }: HomePageProps) {
             if (data.type === "connected") return;
 
             setPhotos((prev) => {
-              if (prev.some((p) => p.requestId === data.requestId)) return prev;
+              const existing = prev.find((p) => p.requestId === data.requestId);
+              const nextPhoto: Photo = {
+                id: data.requestId,
+                requestId: data.requestId,
+                url: data.dataUrl,
+                timestamp: new Date(data.timestamp).toLocaleTimeString(),
+                detections: data.detections ?? null,
+                width: data.width ?? null,
+                height: data.height ?? null,
+              };
+
+              if (existing) {
+                // Second broadcast for this photo — YOLO results just arrived.
+                if (data.detections) {
+                  const foodNames = (data.detections as Photo["detections"])
+                    ?.filter((d) => d?.kind === "food")
+                    .map((d) => d!.label);
+                  if (foodNames && foodNames.length > 0) {
+                    addLog(`Food detected: ${Array.from(new Set(foodNames)).join(", ")}`);
+                  } else {
+                    addLog("No food detected in last photo");
+                  }
+                }
+                return prev.map((p) =>
+                  p.requestId === data.requestId ? nextPhoto : p,
+                );
+              }
+
               addLog(
                 `Photo captured at ${new Date(data.timestamp).toLocaleTimeString()}`,
               );
-              return [
-                {
-                  id: data.requestId,
-                  requestId: data.requestId,
-                  url: data.dataUrl,
-                  timestamp: new Date(data.timestamp).toLocaleTimeString(),
-                },
-                ...prev,
-              ].slice(0, 6);
+              return [nextPhoto, ...prev].slice(0, 6);
             });
           } catch {}
         };
@@ -158,8 +177,8 @@ export default function HomePage({ userId }: HomePageProps) {
             <Camera className="w-4 h-4 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold">Camera App</h1>
-            <p className="text-xs text-muted-foreground">MentraOS</p>
+            <h1 className="text-lg font-semibold">YOLO Food Scanner</h1>
+            <p className="text-xs text-muted-foreground">MentraOS · YOLO11</p>
           </div>
         </div>
 

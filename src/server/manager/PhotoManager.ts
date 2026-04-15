@@ -1,4 +1,5 @@
 import type { User } from "../session/User";
+import { foodDetector, type Detection } from "../detection/FoodDetector";
 
 export interface StoredPhoto {
   requestId: string;
@@ -8,6 +9,11 @@ export interface StoredPhoto {
   mimeType: string;
   filename: string;
   size: number;
+  /** YOLO food detections. `undefined` while inference is still running. */
+  detections?: Detection[];
+  /** Dimensions of the stored image, needed to render overlays. */
+  width?: number;
+  height?: number;
 }
 
 interface SSEWriter {
@@ -18,6 +24,9 @@ interface SSEWriter {
 
 /**
  * PhotoManager — captures, stores, and broadcasts photos for a single user.
+ *
+ * Each captured photo is pushed through the YOLO food detector; results are
+ * attached to the StoredPhoto and re-broadcast once ready.
  */
 export class PhotoManager {
   private photos: Map<string, StoredPhoto> = new Map();
@@ -43,13 +52,57 @@ export class PhotoManager {
     };
 
     this.photos.set(photo.requestId, stored);
+    // First broadcast: image only, detections still pending on the client
     this.broadcastPhoto(stored);
     console.log(
-      `📸 Photo captured for ${this.user.userId} (${photo.size} bytes)`,
+      `📸 Photo captured for ${this.user.userId} (${photo.size} bytes) — running YOLO food detection...`,
     );
+
+    // Fire-and-forget detection so the UI can show the photo immediately.
+    this.runDetection(stored).catch((err) => {
+      console.error(
+        `[YOLO] Detection failed for ${this.user.userId} / ${photo.requestId}:`,
+        err,
+      );
+    });
   }
 
-  /** Push a photo to all connected SSE clients */
+  /** Run YOLO on the photo, attach results, re-broadcast, and announce aloud. */
+  private async runDetection(stored: StoredPhoto): Promise<void> {
+    const { detections, width, height } = await foodDetector.detect(stored.buffer);
+
+    stored.detections = detections;
+    stored.width = width;
+    stored.height = height;
+
+    const foodNames = detections
+      .filter((d) => d.kind === "food")
+      .map((d) => d.label);
+
+    console.log(
+      `🍕 Detected ${detections.length} item(s) for ${this.user.userId}:`,
+      detections.map((d) => `${d.label} (${(d.confidence * 100).toFixed(1)}%)`).join(", ") ||
+        "none",
+    );
+
+    this.broadcastPhoto(stored);
+
+    // Speak what we found on the glasses, if connected.
+    if (foodNames.length > 0 && this.user.appSession) {
+      const unique = Array.from(new Set(foodNames));
+      const spoken =
+        unique.length === 1
+          ? `I see a ${unique[0]}.`
+          : `I see ${unique.slice(0, -1).join(", ")} and ${unique[unique.length - 1]}.`;
+      try {
+        await this.user.audio.speak(spoken);
+      } catch (err) {
+        console.warn(`[YOLO] Could not speak detections:`, err);
+      }
+    }
+  }
+
+  /** Push a photo (and any detections so far) to all connected SSE clients */
   broadcastPhoto(photo: StoredPhoto): void {
     const base64Data = photo.buffer.toString("base64");
     const payload = JSON.stringify({
@@ -61,6 +114,9 @@ export class PhotoManager {
       userId: photo.userId,
       base64: base64Data,
       dataUrl: `data:${photo.mimeType};base64,${base64Data}`,
+      detections: photo.detections ?? null,
+      width: photo.width ?? null,
+      height: photo.height ?? null,
     });
 
     for (const client of this.sseClients) {
@@ -106,3 +162,4 @@ export class PhotoManager {
     this.sseClients.clear();
   }
 }
+
