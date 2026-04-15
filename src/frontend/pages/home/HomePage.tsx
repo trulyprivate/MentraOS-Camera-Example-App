@@ -11,6 +11,7 @@ import {
 import { useTheme } from "../../App";
 import { PhotoStream, type Photo } from "./components/PhotoStream";
 import { AudioControls } from "./components/AudioControls";
+import { LiveScanControl } from "./components/LiveScanControl";
 import {
   TranscriptionFeed,
   type Transcription,
@@ -193,6 +194,9 @@ export default function HomePage({ userId }: HomePageProps) {
           </div>
         </div>
       </div>
+
+      {/* Live Scan toggle */}
+      <LiveScanControl userId={userId} onLog={addLog} />
 
       {/* Photo Stream */}
       <PhotoStream photos={photos} />

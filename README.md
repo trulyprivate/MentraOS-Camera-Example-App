@@ -13,7 +13,23 @@ also speak out what they see ("I see a pizza and a cup of coffee.").
 3. The server runs YOLO11 (ONNX) locally and extracts food detections.
 4. The webview shows the photo with colored bounding boxes around each food
    item, labeled with the food name and confidence (e.g. `pizza 91%`).
-5. The glasses announce the detected foods via text-to-speech.
+5. The glasses speak the name of each food as it first enters view —
+   each label is announced **once per appearance** (no re-announcing while
+   the food stays visible across subsequent frames).
+
+### Live Video Scan
+
+Two modes are available:
+
+- **Single capture** — tap temple / button → one photo → detections.
+- **Live Scan** — continuous capture loop (default ~1.2s interval) that gives
+  a pseudo-live video feed. Each new food entering view is spoken once.
+  Toggle it from the webview ("Start Live Scan" button) or by **double-tapping**
+  your glasses temple.
+
+Live Scan uses small/heavily-compressed photos for low latency. Actual FPS
+depends on your glasses → cloud → server round-trip (typically 0.5–2 fps on
+Mentra glasses).
 
 Supported food classes out-of-the-box (COCO dataset):
 
@@ -85,6 +101,8 @@ model is cached locally — subsequent runs skip the download.
 - `GET /api/photo/:requestId?userId=...` — raw image bytes
 - `GET /api/detections/:requestId?userId=...` — just the YOLO detections for a photo
 - `GET /api/photo-stream?userId=...` — SSE stream of photos + detections (UI uses this)
+- `GET /api/live-scan?userId=...` — current Live Scan status (active, fps, frames)
+- `POST /api/live-scan` — body `{ userId, enabled, intervalMs? }` to start/stop Live Scan
 
 Each detection is shaped like:
 ```json

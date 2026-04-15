@@ -16,6 +16,7 @@ import {
   getPhotoBase64,
   getPhotoDetections,
 } from "../api/photo";
+import { getLiveScanStatus, setLiveScanStatus } from "../api/live-scan";
 
 export const api = new Hono();
 
@@ -41,3 +42,7 @@ api.get("/photo-base64/:requestId", getPhotoBase64);
 
 // Food detections (YOLO11)
 api.get("/detections/:requestId", getPhotoDetections);
+
+// Live Scan mode (continuous photo capture for pseudo-live video detection)
+api.get("/live-scan", getLiveScanStatus);
+api.post("/live-scan", setLiveScanStatus);
