@@ -9,6 +9,7 @@ import { CameraApp } from "./server/CameraApp";
 import { api } from "./server/routes/routes";
 import { createMentraAuthRoutes } from "@mentra/sdk";
 import indexHtml from "./frontend/index.html";
+import { foodDetector } from "./server/detection/FoodDetector";
 
 // Configuration from environment
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -56,6 +57,13 @@ app.route("/api", api);
 
 // Start the SDK app (registers SDK routes, checks version)
 await app.start();
+
+// Warm up the YOLO food detector in the background — first inference is slow
+// because the ONNX model needs to load. We don't await this so the server can
+// start serving immediately; the first photo just waits briefly if needed.
+foodDetector.load().catch((err) => {
+  console.error("⚠️  YOLO food detector failed to warm up:", err);
+});
 
 console.log(`✅ Camera app running at http://localhost:${PORT}`);
 console.log(`   • Webview: http://localhost:${PORT}`);

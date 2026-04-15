@@ -55,7 +55,10 @@ export class InputManager {
     });
 
     session.events.onTouchEvent("double_tap", () => {
-      console.log(`[Touch] ${this.user.userId}: double_tap`);
+      console.log(`[Touch] ${this.user.userId}: double_tap — toggle Live Scan`);
+      const status = this.user.photo.getLiveScanStatus();
+      if (status.active) this.user.photo.stopLiveScan();
+      else this.user.photo.startLiveScan();
     });
 
     session.events.onTouchEvent("triple_tap", () => {
