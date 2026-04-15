@@ -31,6 +31,12 @@ interface SSEWriter {
 export class PhotoManager {
   private photos: Map<string, StoredPhoto> = new Map();
   private sseClients: Set<SSEWriter> = new Set();
+  /**
+   * Labels currently considered "in view" for this user. A label is added
+   * when it first appears in a detection and removed when a photo comes back
+   * without it. This ensures we speak each food's name once per appearance.
+   */
+  private foodsInView: Set<string> = new Set();
 
   constructor(private user: User) {}
 
@@ -87,17 +93,46 @@ export class PhotoManager {
 
     this.broadcastPhoto(stored);
 
-    // Speak what we found on the glasses, if connected.
-    if (foodNames.length > 0 && this.user.appSession) {
-      const unique = Array.from(new Set(foodNames));
-      const spoken =
-        unique.length === 1
-          ? `I see a ${unique[0]}.`
-          : `I see ${unique.slice(0, -1).join(", ")} and ${unique[unique.length - 1]}.`;
+    // Announce each newly-visible food once. Labels that were already in view
+    // stay silent; labels that disappeared from view are cleared so they can
+    // be re-announced the next time they show up.
+    await this.announceNewFoods(foodNames);
+  }
+
+  /**
+   * Speak the name of each food that just entered view (present now but not
+   * in the previous frame). Removes labels that are no longer in view so a
+   * re-appearance triggers a fresh announcement.
+   */
+  private async announceNewFoods(foodNames: string[]): Promise<void> {
+    if (!this.user.appSession) return;
+
+    const currentlyVisible = new Set(foodNames);
+    const newlyVisible: string[] = [];
+
+    for (const label of currentlyVisible) {
+      if (!this.foodsInView.has(label)) newlyVisible.push(label);
+    }
+
+    // Drop labels that are no longer in view so they'll re-announce next time.
+    for (const label of this.foodsInView) {
+      if (!currentlyVisible.has(label)) this.foodsInView.delete(label);
+    }
+    for (const label of newlyVisible) this.foodsInView.add(label);
+
+    if (newlyVisible.length === 0) return;
+
+    console.log(
+      `🔊 Announcing new foods for ${this.user.userId}: ${newlyVisible.join(", ")}`,
+    );
+
+    // Speak each new food's name individually, sequentially, so overlapping
+    // TTS calls don't clip each other on the glasses speaker.
+    for (const label of newlyVisible) {
       try {
-        await this.user.audio.speak(spoken);
+        await this.user.audio.speak(label);
       } catch (err) {
-        console.warn(`[YOLO] Could not speak detections:`, err);
+        console.warn(`[YOLO] Could not speak "${label}":`, err);
       }
     }
   }
@@ -156,10 +191,11 @@ export class PhotoManager {
     this.sseClients.delete(client);
   }
 
-  /** Tear down — clear photos and SSE clients */
+  /** Tear down — clear photos, SSE clients, and in-view tracking */
   destroy(): void {
     this.photos.clear();
     this.sseClients.clear();
+    this.foodsInView.clear();
   }
 }
 
