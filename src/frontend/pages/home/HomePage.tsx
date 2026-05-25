@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Camera, Zap, Terminal } from "lucide-react";
+import { Camera, Zap, Terminal, Mic } from "lucide-react";
 import {
   Badge,
   Tabs,
@@ -14,6 +14,7 @@ import {
   type Transcription,
 } from "./components/TranscriptionFeed";
 import { SystemLogs, type Log } from "./components/SystemLogs";
+import VoiceAgentPage from "../voice/VoiceAgentPage";
 
 interface HomePageProps {
   userId: string;
@@ -160,7 +161,9 @@ export default function HomePage({ userId }: HomePageProps) {
           </div>
         </div>
         <Badge variant="outline" className="font-mono text-xs mt-2">
-          {userId && userId.length > 20 ? `${userId.substring(0, 20)}...` : userId}
+          {userId && userId.length > 20
+            ? `${userId.substring(0, 20)}...`
+            : userId}
         </Badge>
       </div>
 
@@ -170,12 +173,16 @@ export default function HomePage({ userId }: HomePageProps) {
       {/* Audio Controls */}
       <AudioControls userId={userId} onLog={addLog} />
 
-      {/* Transcriptions & Logs */}
+      {/* Tabs: Transcriptions | Voice Agent | System Logs */}
       <Tabs defaultValue="transcriptions">
         <TabsList className="w-full">
           <TabsTrigger value="transcriptions" className="flex-1">
             <Zap className="w-3.5 h-3.5" />
             Transcriptions
+          </TabsTrigger>
+          <TabsTrigger value="voice-agent" className="flex-1">
+            <Mic className="w-3.5 h-3.5" />
+            Voice Agent
           </TabsTrigger>
           <TabsTrigger value="logs" className="flex-1">
             <Terminal className="w-3.5 h-3.5" />
@@ -185,6 +192,10 @@ export default function HomePage({ userId }: HomePageProps) {
 
         <TabsContent value="transcriptions">
           <TranscriptionFeed transcriptions={transcriptions} />
+        </TabsContent>
+
+        <TabsContent value="voice-agent">
+          <VoiceAgentPage userId={userId} />
         </TabsContent>
 
         <TabsContent value="logs">
