@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      - PORT=${PORT:-3000}
+      - PACKAGE_NAME=${PACKAGE_NAME}
+      - MENTRAOS_API_KEY=${MENTRAOS_API_KEY}
+      - COOKIE_SECRET=${COOKIE_SECRET}
+      - PYTHON_VOICE_URL=ws://voice-agent:8000
+      - NODE_ENV=${NODE_ENV:-production}
+    depends_on:
+      voice-agent:
+        condition: service_healthy
+
+  voice-agent:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - TTS_MODEL=${TTS_MODEL:-Qwen/Qwen3-TTS-0.6B}
+      - ACTIVATION_TIMEOUT=${ACTIVATION_TIMEOUT:-15.0}
+      - LLM_ENDPOINT=${LLM_ENDPOINT:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-haiku-4-5-20251001}
+      - LOAD_TTS_ON_START=${LOAD_TTS_ON_START:-1}
+    volumes:
+      - tts_cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  tts_cache:
